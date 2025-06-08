@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Voice Reminder To-Do App</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 2rem;
+      margin: 0;
+      background: 
+        linear-gradient(120deg, #82c9d3 0%, #e1bee7 100%),
+        url('https://www.transparenttextures.com/patterns/symphony.png');
+      background-size: cover;
+      background-repeat: repeat;
+      color: #333;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 2rem;
+      color: #2c3e50;
+      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    #taskForm {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      max-width: 600px;
+      margin: 0 auto 2rem;
+      background: #ffffffdd;
+      padding: 1rem;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(230, 40, 40, 0.1);
+    }
+
+    #taskForm input[type="text"],
+    #taskForm input[type="time"] {
+      flex: 1;
+      min-width: 120px;
+      padding: 0.6rem;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      transition: border-color 0.2s;
+    }
+
+    #taskForm input:focus {
+      border-color: #5c6bc0;
+      outline: none;
+    }
+
+    #taskForm button {
+      padding: 0.6rem 1rem;
+      background-color: #5c6bc0;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.3s ease;
+    }
+
+    #taskForm button:hover {
+      background-color: #3f51b5;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      max-width: 600px;
+      margin: auto;
+    }
+
+    li {
+      background: rgba(255, 255, 255, 0.95);
+      margin-bottom: 0.5rem;
+      padding: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      transition: transform 0.2s ease, background-color 0.3s;
+    }
+
+    li:hover {
+      transform: scale(1.01);
+      background-color: #f9f9f9;
+    }
+
+    .done {
+      text-decoration: line-through;
+      color: gray;
+      opacity: 0.7;
+    }
+
+    li button {
+      margin-left: 0.5rem;
+      background-color: #f44336;
+      border: none;
+      color: white;
+      border-radius: 5px;
+      padding: 0.4rem 0.6rem;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    li button:hover {
+      background-color: #161516;
+    }
+
+    li button:nth-child(2) {
+      background-color: #000000;
+    }
+
+    li button:nth-child(2):hover {
+      background-color: #000000;
+    }
+
+    @media (max-width: 600px) {
+      #taskForm {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      li {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>🗣️ To-Do List </h1>
+  <form id="taskForm">
+    <input type="text" id="taskInput" placeholder="Enter task..." required />
+    <input type="time" id="taskTime" required />
+    <button type="submit">Add Task</button>
+  </form>
+  <ul id="taskList"></ul>
+
+  <script>
+    const taskForm = document.getElementById("taskForm");
+    const taskInput = document.getElementById("taskInput");
+    const taskTime = document.getElementById("taskTime");
+    const taskList = document.getElementById("taskList");
+
+    let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+
+    function saveTasks() {
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+    }
+
+    function speak(text) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      speechSynthesis.speak(utterance);
+    }
+
+    function renderTasks() {
+      taskList.innerHTML = "";
+      tasks.sort((a, b) => a.time.localeCompare(b.time));
+      tasks.forEach((task, index) => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <strong>${task.title}</strong> at <em>${task.time}</em>
+          <button onclick="markDone(${index})">Done</button>
+          <button onclick="deleteTask(${index})">Delete</button>
+        `;
+        if (task.done) li.classList.add("done");
+        taskList.appendChild(li);
+      });
+    }
+
+    function markDone(index) {
+      tasks[index].done = !tasks[index].done;
+      saveTasks();
+      renderTasks();
+    }
+
+    function deleteTask(index) {
+      tasks.splice(index, 1);
+      saveTasks();
+      renderTasks();
+    }
+
+    taskForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const task = {
+        title: taskInput.value,
+        time: taskTime.value,
+        done: false,
+        reminded: false
+      };
+      tasks.push(task);
+      saveTasks();
+      renderTasks();
+      speak(`Task "${task.title}" set for ${task.time}`);
+      taskInput.value = "";
+      taskTime.value = "";
+    });
+
+    // ⏰ Reminder checker
+    setInterval(() => {
+      const now = new Date();
+      const currentTime = now.toTimeString().slice(0,5); // HH:MM
+      tasks.forEach((task, index) => {
+        if (task.time === currentTime && !task.reminded && !task.done) {
+          speak(`Reminder: It's time to ${task.title}`);
+          tasks[index].reminded = true;
+          saveTasks();
+        }
+      });
+    }, 60000);
+
+    renderTasks();
+  </script>
+</body>
+</html>
